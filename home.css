@@ -47,10 +47,7 @@ body { overflow-y:auto; height:auto; background:#1a0533; padding-bottom:70px; }
   z-index:10;
 }
 
-.nav-item {
-  color:#c9b3ea; text-decoration:none; font-size:13px; font-weight:600;
-}
-
+.nav-item { color:#c9b3ea; text-decoration:none; font-size:13px; font-weight:600; }
 .nav-item.active { color:#f4c542; }
 
 .modal {
@@ -82,3 +79,15 @@ body { overflow-y:auto; height:auto; background:#1a0533; padding-bottom:70px; }
 
 .btn-secondary { background:transparent; border:1px solid #f4c542; color:#f4c542; }
 .btn-primary { background:#f4c542; color:#2b0a4e; }
+
+.rec-card {
+  max-width:480px; margin:16px auto 0;
+  background:rgba(244,197,66,0.1);
+  border:1px solid #f4c542;
+  border-radius:14px;
+  padding:14px;
+}
+
+.rec-label { color:#f4c542; font-size:13px; font-weight:700; margin-bottom:8px; }
+.rec-img { width:100%; border-radius:10px; max-height:300px; object-fit:cover; }
+.rec-msg { color:#e0c9ff; font-size:13px; margin-top:8px; }
