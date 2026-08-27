@@ -16,6 +16,39 @@ body { overflow-y:auto; height:auto; background:#1a0533; padding-bottom:70px; }
   padding:6px 14px; border-radius:20px; font-size:13px;
 }
 
+.category-bar {
+  display:flex;
+  overflow-x:auto;
+  gap:8px;
+  padding:14px 16px 4px;
+  max-width:480px;
+  margin:0 auto;
+}
+
+.cat-pill {
+  flex-shrink:0;
+  padding:8px 14px;
+  border-radius:18px;
+  border:1px solid rgba(244,197,66,0.4);
+  background:transparent;
+  color:#e0c9ff;
+  font-size:12px;
+  font-weight:600;
+}
+
+.cat-pill.active { background:#f4c542; color:#2b0a4e; border-color:#f4c542; }
+
+.cat-tag {
+  display:inline-block;
+  background:rgba(244,197,66,0.15);
+  color:#f4c542;
+  font-size:11px;
+  font-weight:700;
+  padding:4px 10px;
+  border-radius:12px;
+  margin:10px 0 0 14px;
+}
+
 .feed { padding:16px; display:flex; flex-direction:column; gap:20px; max-width:480px; margin:0 auto; }
 
 .video-card {
@@ -26,7 +59,8 @@ body { overflow-y:auto; height:auto; background:#1a0533; padding-bottom:70px; }
   padding-bottom:14px;
 }
 
-.feed-video { width:100%; display:block; max-height:420px; background:#000; }
+.feed-video { width:100%; display:block; max-height:420px; background:#000; margin-top:8px; }
+.feed-photo { width:100%; display:block; max-height:420px; object-fit:cover; margin-top:8px; }
 
 .caption { padding:10px 14px 0; font-size:14px; color:#e0c9ff; }
 
