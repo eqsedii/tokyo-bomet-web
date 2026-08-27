@@ -1,11 +1,95 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Tokyo Bomet</title>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Tokyo Bomet</title>
+<link rel="stylesheet" href="style.css">
 </head>
 <body>
-  <h1>Tokyo Bomet is coming soon 👗</h1>
+
+<video class="bg-video" autoplay muted loop playsinline>
+  <source src="https://res.cloudinary.com/kihyxfyk/video/upload/v1787825761/Kavcom_Expert_Private_Limited_MP4.mp4" type="video/mp4">
+</video>
+<div class="bg-overlay"></div>
+
+<div id="loading-screen"><div class="loader-logo">TOKYO BOMET</div></div>
+
+<div class="welcome-container">
+  <div class="logo">TOKYO BOMET<span>FASHION • ART • CULTURE</span></div>
+  <div class="tagline">Welcome to your style destination</div>
+
+  <div class="auth-box">
+    <p class="error-msg" id="errorMsg"></p>
+
+    <div id="loginForm">
+      <input type="email" id="loginEmail" placeholder="Email">
+      <input type="password" id="loginPassword" placeholder="Password">
+      <button onclick="handleLogin()">Log In</button>
+      <p class="switch-text">New here? <a onclick="toggleForm()">Create an account</a></p>
+    </div>
+
+    <div id="signupForm" style="display:none;">
+      <input type="text" id="signupName" placeholder="Username">
+      <input type="email" id="signupEmail" placeholder="Email">
+      <input type="password" id="signupPassword" placeholder="Password">
+      <button onclick="handleSignup()">Sign Up</button>
+      <p class="switch-text">Already have an account? <a onclick="toggleForm()">Log In</a></p>
+    </div>
+  </div>
+</div>
+
+<script type="module">
+  import { auth, db } from './firebase-config.js';
+  import { createUserWithEmailAndPassword, signInWithEmailAndPassword }
+    from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
+  import { doc, setDoc } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+
+  window.toggleForm = function() {
+    document.getElementById('loginForm').style.display =
+      document.getElementById('loginForm').style.display === 'none' ? 'block' : 'none';
+    document.getElementById('signupForm').style.display =
+      document.getElementById('signupForm').style.display === 'none' ? 'block' : 'none';
+    document.getElementById('errorMsg').innerText = '';
+  }
+
+  function showLoading(show) {
+    document.getElementById('loading-screen').classList.toggle('active', show);
+  }
+
+  window.handleSignup = async function() {
+    const name = document.getElementById('signupName').value;
+    const email = document.getElementById('signupEmail').value;
+    const password = document.getElementById('signupPassword').value;
+    const errorMsg = document.getElementById('errorMsg');
+    if (!name || !email || !password) { errorMsg.innerText = "Fill in all fields"; return; }
+    showLoading(true);
+    try {
+      const cred = await createUserWithEmailAndPassword(auth, email, password);
+      await setDoc(doc(db, "users", cred.user.uid), {
+        username: name, email: email, createdAt: new Date().toISOString()
+      });
+      window.location.href = "home.html";
+    } catch (e) {
+      errorMsg.innerText = e.message.replace("Firebase: ", "");
+      showLoading(false);
+    }
+  }
+
+  window.handleLogin = async function() {
+    const email = document.getElementById('loginEmail').value;
+    const password = document.getElementById('loginPassword').value;
+    const errorMsg = document.getElementById('errorMsg');
+    if (!email || !password) { errorMsg.innerText = "Fill in all fields"; return; }
+    showLoading(true);
+    try {
+      await signInWithEmailAndPassword(auth, email, password);
+      window.location.href = "home.html";
+    } catch (e) {
+      errorMsg.innerText = e.message.replace("Firebase: ", "");
+      showLoading(false);
+    }
+  }
+</script>
 </body>
 </html>
