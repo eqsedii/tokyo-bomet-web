@@ -22,6 +22,8 @@
   <a href="contact.html" class="nav-item">Reach Us</a>
 </nav>
 
+<div id="categoryBar" class="category-bar"></div>
+
 <div id="recBanner"></div>
 
 <div id="feed" class="feed"></div>
@@ -50,8 +52,21 @@
     document.getElementById('loading-screen').classList.toggle('active', show);
   }
 
+  function optimizeVideoUrl(url) {
+    if (!url.includes('/upload/')) return url;
+    return url.replace('/upload/', '/upload/q_auto,f_auto/');
+  }
+
+  function optimizeImageUrl(url) {
+    if (!url.includes('/upload/')) return url;
+    return url.replace('/upload/', '/upload/q_auto,f_auto/');
+  }
+
   let currentUser = null;
-  let currentVideoId = null;
+  let currentSourceId = null;
+  let currentSourceType = null;
+  let activeCategory = 'All';
+  let allItems = [];
 
   onAuthStateChanged(auth, (user) => {
     if (!user) {
@@ -59,6 +74,7 @@
     } else {
       currentUser = user;
       logVisit(user.uid);
+      loadCategories();
       loadFeed();
       loadRecommendations(user.uid);
     }
@@ -73,6 +89,32 @@
         timestamp: new Date().toISOString()
       });
     } catch (e) { /* silent fail, tracking shouldn't block the app */ }
+  }
+
+  async function loadCategories() {
+    const bar = document.getElementById('categoryBar');
+    bar.innerHTML = '<button class="cat-pill active" data-cat="All">All</button>';
+    try {
+      const q = query(collection(db, "categories"), orderBy("name"));
+      const snap = await getDocs(q);
+      snap.forEach((docSnap) => {
+        const c = docSnap.data();
+        const btn = document.createElement('button');
+        btn.className = 'cat-pill';
+        btn.dataset.cat = c.name;
+        btn.innerText = c.name;
+        bar.appendChild(btn);
+      });
+    } catch (e) { /* ignore */ }
+
+    bar.querySelectorAll('.cat-pill').forEach(btn => {
+      btn.addEventListener('click', () => {
+        bar.querySelectorAll('.cat-pill').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        activeCategory = btn.dataset.cat;
+        renderFeed();
+      });
+    });
   }
 
   async function loadRecommendations(uid) {
@@ -99,36 +141,55 @@
 
   async function loadFeed() {
     showLoading(true);
-    const feedDiv = document.getElementById('feed');
-    feedDiv.innerHTML = '';
+    allItems = [];
     try {
-      const q = query(collection(db, "videos"), orderBy("createdAt", "desc"));
-      const snap = await getDocs(q);
-      if (snap.empty) {
-        feedDiv.innerHTML = '<p class="empty-msg">No products posted yet. Check back soon!</p>';
-      }
-      snap.forEach((docSnap) => {
-        const v = docSnap.data();
-        const card = document.createElement('div');
-        card.className = 'video-card';
-        card.innerHTML = `
-          <video src="${v.videoUrl}" controls playsinline class="feed-video"></video>
-          <p class="caption">${v.caption || ''}</p>
-          <button class="love-btn" data-id="${docSnap.id}">💛 Send what you've loved</button>
-        `;
-        feedDiv.appendChild(card);
-      });
-      document.querySelectorAll('.love-btn').forEach(btn => {
-        btn.addEventListener('click', () => openModal(btn.dataset.id));
-      });
-    } catch (e) {
-      feedDiv.innerHTML = '<p class="empty-msg">Could not load feed. Try again.</p>';
-    }
+      const vSnap = await getDocs(query(collection(db, "videos"), orderBy("createdAt", "desc")));
+      vSnap.forEach(d => allItems.push({ id: d.id, type: 'video', ...d.data() }));
+
+      const pSnap = await getDocs(query(collection(db, "photos"), orderBy("createdAt", "desc")));
+      pSnap.forEach(d => allItems.push({ id: d.id, type: 'photo', ...d.data() }));
+
+      allItems.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+    } catch (e) { /* ignore */ }
+    renderFeed();
     showLoading(false);
   }
 
-  window.openModal = function(videoId) {
-    currentVideoId = videoId;
+  function renderFeed() {
+    const feedDiv = document.getElementById('feed');
+    feedDiv.innerHTML = '';
+    const filtered = activeCategory === 'All'
+      ? allItems
+      : allItems.filter(i => i.category === activeCategory);
+
+    if (filtered.length === 0) {
+      feedDiv.innerHTML = '<p class="empty-msg">No products in this category yet.</p>';
+      return;
+    }
+
+    filtered.forEach(item => {
+      const card = document.createElement('div');
+      card.className = 'video-card';
+      const media = item.type === 'video'
+        ? `<video src="${optimizeVideoUrl(item.videoUrl)}" controls playsinline preload="metadata" class="feed-video"></video>`
+        : `<img src="${optimizeImageUrl(item.photoUrl)}" class="feed-photo">`;
+      card.innerHTML = `
+        ${item.category ? `<span class="cat-tag">${item.category}</span>` : ''}
+        ${media}
+        <p class="caption">${item.caption || ''}</p>
+        <button class="love-btn" data-id="${item.id}" data-type="${item.type}">💛 Send what you've loved</button>
+      `;
+      feedDiv.appendChild(card);
+    });
+
+    document.querySelectorAll('.love-btn').forEach(btn => {
+      btn.addEventListener('click', () => openModal(btn.dataset.id, btn.dataset.type));
+    });
+  }
+
+  window.openModal = function(id, type) {
+    currentSourceId = id;
+    currentSourceType = type;
     document.getElementById('reqName').value = '';
     document.getElementById('reqDesc').value = '';
     document.getElementById('reqError').innerText = '';
@@ -152,7 +213,8 @@
         userId: currentUser.uid,
         username: username,
         email: currentUser.email,
-        videoId: currentVideoId,
+        sourceId: currentSourceId,
+        sourceType: currentSourceType,
         itemName: name,
         description: desc,
         status: "pending",
