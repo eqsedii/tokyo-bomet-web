@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Reach Us - Tokyo Bomet</title>
+<link rel="stylesheet" href="style.css">
+<link rel="stylesheet" href="home.css">
+<link rel="stylesheet" href="pages.css">
+</head>
+<body>
+
+<div id="loading-screen"><div class="loader-logo">TOKYO BOMET</div></div>
+
+<header class="top-bar">
+  <div class="brand-mini">TOKYO <span>BOMET</span></div>
+  <button class="icon-btn" onclick="handleLogout()">Logout</button>
+</header>
+
+<nav class="bottom-nav">
+  <a href="home.html" class="nav-item">Feed</a>
+  <a href="about.html" class="nav-item">About</a>
+  <a href="contact.html" class="nav-item active">Reach Us</a>
+</nav>
+
+<div class="page-content">
+  <h2 class="page-title">Reach Us</h2>
+  <p class="page-text">Follow us or chat with us directly — we're always happy to help you find your next look.</p>
+
+  <a class="contact-btn facebook" href="https://www.facebook.com/profile.php?id=61579741893445" target="_blank">
+    📘 Message us on Facebook
+  </a>
+
+  <a class="contact-btn whatsapp" href="https://wa.me/254714224293" target="_blank">
+    💬 Chat on WhatsApp
+  </a>
+
+  <div class="info-card">
+    <h4>📍 Visit Us</h4>
+    <p>Kenya, Bomet County — Opposite Bomet Stage, near Twigs Hotel</p>
+  </div>
+</div>
+
+<script type="module">
+  import { auth } from './firebase-config.js';
+  import { onAuthStateChanged, signOut }
+    from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
+
+  onAuthStateChanged(auth, (user) => {
+    if (!user) window.location.href = "index.html";
+  });
+
+  window.handleLogout = async function() {
+    await signOut(auth);
+    window.location.href = "index.html";
+  }
+</script>
+</body>
+</html>
