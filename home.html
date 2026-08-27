@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Tokyo Bomet - Feed</title>
+<link rel="stylesheet" href="style.css">
+<link rel="stylesheet" href="home.css">
+</head>
+<body>
+
+<div id="loading-screen"><div class="loader-logo">TOKYO BOMET</div></div>
+
+<header class="top-bar">
+  <div class="brand-mini">TOKYO <span>BOMET</span></div>
+  <button class="icon-btn" onclick="handleLogout()">Logout</button>
+</header>
+
+<nav class="bottom-nav">
+  <a href="home.html" class="nav-item active">Feed</a>
+  <a href="about.html" class="nav-item">About</a>
+  <a href="contact.html" class="nav-item">Reach Us</a>
+</nav>
+
+<div id="feed" class="feed"></div>
+
+<!-- Request Modal -->
+<div id="requestModal" class="modal">
+  <div class="modal-box">
+    <h3>What did you love?</h3>
+    <input type="text" id="reqName" placeholder="Item name (e.g. Blue Nike Dunks)">
+    <textarea id="reqDesc" placeholder="Describe it (size, color, etc.)"></textarea>
+    <p class="error-msg" id="reqError"></p>
+    <div class="modal-actions">
+      <button class="btn-secondary" onclick="closeModal()">Cancel</button>
+      <button class="btn-primary" onclick="sendRequest()">Send</button>
+    </div>
+  </div>
+</div>
+
+<script type="module">
+  import { auth, db } from './firebase-config.js';
+  import { onAuthStateChanged, signOut }
+    from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
+  import { collection, addDoc, getDocs, doc, getDoc, query, orderBy }
+    from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+
+  function showLoading(show) {
+    document.getElementById('loading-screen').classList.toggle('active', show);
+  }
+
+  let currentUser = null;
+  let currentVideoId = null;
+
+  onAuthStateChanged(auth, (user) => {
+    if (!user) {
+      window.location.href = "index.html";
+    } else {
+      currentUser = user;
+      loadFeed();
+    }
+  });
+
+  async function loadFeed() {
+    showLoading(true);
+    const feedDiv = document.getElementById('feed');
+    feedDiv.innerHTML = '';
+    try {
+      const q = query(collection(db, "videos"), orderBy("createdAt", "desc"));
+      const snap = await getDocs(q);
+      if (snap.empty) {
+        feedDiv.innerHTML = '<p class="empty-msg">No products posted yet. Check back soon!</p>';
+      }
+      snap.forEach((docSnap) => {
+        const v = docSnap.data();
+        const card = document.createElement('div');
+        card.className = 'video-card';
+        card.innerHTML = `
+          <video src="${v.videoUrl}" controls playsinline class="feed-video"></video>
+          <p class="caption">${v.caption || ''}</p>
+          <button class="love-btn" data-id="${docSnap.id}">💛 Send what you've loved</button>
+        `;
+        feedDiv.appendChild(card);
+      });
+      document.querySelectorAll('.love-btn').forEach(btn => {
+        btn.addEventListener('click', () => openModal(btn.dataset.id));
+      });
+    } catch (e) {
+      feedDiv.innerHTML = '<p class="empty-msg">Could not load feed. Try again.</p>';
+    }
+    showLoading(false);
+  }
+
+  window.openModal = function(videoId) {
+    currentVideoId = videoId;
+    document.getElementById('reqName').value = '';
+    document.getElementById('reqDesc').value = '';
+    document.getElementById('reqError').innerText = '';
+    document.getElementById('requestModal').classList.add('active');
+  }
+
+  window.closeModal = function() {
+    document.getElementById('requestModal').classList.remove('active');
+  }
+
+  window.sendRequest = async function() {
+    const name = document.getElementById('reqName').value.trim();
+    const desc = document.getElementById('reqDesc').value.trim();
+    const errorMsg = document.getElementById('reqError');
+    if (!name || !desc) { errorMsg.innerText = "Please fill both fields"; return; }
+    showLoading(true);
+    try {
+      const userDoc = await getDoc(doc(db, "users", currentUser.uid));
+      const username = userDoc.exists() ? userDoc.data().username : currentUser.email;
+      await addDoc(collection(db, "requests"), {
+        userId: currentUser.uid,
+        username: username,
+        email: currentUser.email,
+        videoId: currentVideoId,
+        itemName: name,
+        description: desc,
+        status: "pending",
+        adminReply: "",
+        createdAt: new Date().toISOString()
+      });
+      showLoading(false);
+      closeModal();
+      alert("Sent! Tokyo Bomet will get back to you soon.");
+    } catch (e) {
+      errorMsg.innerText = "Failed to send. Try again.";
+      showLoading(false);
+    }
+  }
+
+  window.handleLogout = async function() {
+    await signOut(auth);
+    window.location.href = "index.html";
+  }
+</script>
+</body>
+</html>
