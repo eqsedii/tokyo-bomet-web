@@ -22,9 +22,10 @@
   <a href="contact.html" class="nav-item">Reach Us</a>
 </nav>
 
+<div id="recBanner"></div>
+
 <div id="feed" class="feed"></div>
 
-<!-- Request Modal -->
 <div id="requestModal" class="modal">
   <div class="modal-box">
     <h3>What did you love?</h3>
@@ -42,7 +43,7 @@
   import { auth, db } from './firebase-config.js';
   import { onAuthStateChanged, signOut }
     from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
-  import { collection, addDoc, getDocs, doc, getDoc, query, orderBy }
+  import { collection, addDoc, getDocs, doc, getDoc, query, orderBy, where }
     from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 
   function showLoading(show) {
@@ -57,9 +58,44 @@
       window.location.href = "index.html";
     } else {
       currentUser = user;
+      logVisit(user.uid);
       loadFeed();
+      loadRecommendations(user.uid);
     }
   });
+
+  async function logVisit(uid) {
+    try {
+      const today = new Date().toISOString().slice(0, 10);
+      await addDoc(collection(db, "visits"), {
+        userId: uid,
+        date: today,
+        timestamp: new Date().toISOString()
+      });
+    } catch (e) { /* silent fail, tracking shouldn't block the app */ }
+  }
+
+  async function loadRecommendations(uid) {
+    const banner = document.getElementById('recBanner');
+    try {
+      const q = query(collection(db, "recommendations"), where("userId", "==", uid));
+      const snap = await getDocs(q);
+      if (!snap.empty) {
+        banner.innerHTML = '';
+        snap.forEach((docSnap) => {
+          const r = docSnap.data();
+          const card = document.createElement('div');
+          card.className = 'rec-card';
+          card.innerHTML = `
+            <p class="rec-label">✨ Tokyo Bomet recommends for you</p>
+            <img src="${r.photoUrl}" class="rec-img">
+            <p class="rec-msg">${r.message || ''}</p>
+          `;
+          banner.appendChild(card);
+        });
+      }
+    } catch (e) { /* no recommendations yet */ }
+  }
 
   async function loadFeed() {
     showLoading(true);
