@@ -1,0 +1,117 @@
+* { margin:0; padding:0; box-sizing:border-box; font-family:'Segoe UI', sans-serif; }
+
+body {
+  height:100vh;
+  overflow:hidden;
+  color:#fff;
+}
+
+.bg-video {
+  position:fixed; top:0; left:0;
+  width:100%; height:100%;
+  object-fit:cover;
+  z-index:-2;
+}
+
+.bg-overlay {
+  position:fixed; top:0; left:0;
+  width:100%; height:100%;
+  background:#2b0a4e;
+  opacity:0.6;
+  z-index:-1;
+}
+
+.welcome-container {
+  height:100vh;
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  justify-content:center;
+  text-align:center;
+  padding:20px;
+}
+
+.logo {
+  font-size:42px;
+  font-weight:900;
+  letter-spacing:2px;
+  color:#f4c542;
+  text-shadow:0 0 12px rgba(244,197,66,0.6);
+}
+
+.logo span { display:block; color:#fff; font-size:16px; letter-spacing:6px; margin-top:4px; }
+
+.tagline {
+  margin-top:8px;
+  font-size:13px;
+  letter-spacing:3px;
+  color:#e0c9ff;
+}
+
+.auth-box {
+  margin-top:30px;
+  background:rgba(0,0,0,0.4);
+  border:1px solid rgba(244,197,66,0.4);
+  border-radius:16px;
+  padding:25px 20px;
+  width:100%;
+  max-width:340px;
+  backdrop-filter:blur(6px);
+}
+
+.auth-box input {
+  width:100%;
+  padding:12px;
+  margin-bottom:12px;
+  border-radius:8px;
+  border:none;
+  background:rgba(255,255,255,0.9);
+  font-size:15px;
+}
+
+.auth-box button {
+  width:100%;
+  padding:12px;
+  border:none;
+  border-radius:8px;
+  background:#f4c542;
+  color:#2b0a4e;
+  font-weight:700;
+  font-size:15px;
+  margin-top:5px;
+}
+
+.switch-text {
+  margin-top:14px;
+  font-size:13px;
+  color:#e0c9ff;
+}
+
+.switch-text a { color:#f4c542; font-weight:600; text-decoration:none; }
+
+.error-msg { color:#ff6b6b; font-size:13px; margin-bottom:10px; min-height:16px; }
+
+/* Loading screen */
+#loading-screen {
+  position:fixed; top:0; left:0;
+  width:100%; height:100%;
+  background:#2b0a4e;
+  display:none;
+  align-items:center;
+  justify-content:center;
+  z-index:999;
+}
+
+#loading-screen.active { display:flex; }
+
+.loader-logo {
+  font-size:32px;
+  font-weight:900;
+  color:#f4c542;
+  animation: pulse 1s infinite ease-in-out;
+}
+
+@keyframes pulse {
+  0%,100% { transform:scale(1); opacity:1; }
+  50% { transform:scale(1.15); opacity:0.6; }
+}
