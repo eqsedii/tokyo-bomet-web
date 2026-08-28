@@ -31,6 +31,7 @@
 <div class="page-content">
   <h2 class="page-title">Your Cart</h2>
   <div id="cartItems"></div>
+  <div id="cartTotal" class="cart-total" style="display:none;"></div>
 
   <div id="checkoutBox" class="info-card" style="display:none;">
     <h4>Reserve These Items</h4>
@@ -48,6 +49,7 @@
 
 <script type="module">
   import { auth, db } from './firebase-config.js';
+  import { showToast } from './toast.js';
   import { onAuthStateChanged, signOut }
     from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
   import { doc, getDoc, setDoc, collection, addDoc }
@@ -55,6 +57,12 @@
 
   function showLoading(show) {
     document.getElementById('loading-screen').classList.toggle('active', show);
+  }
+
+  function formatPrice(price) {
+    const n = Number(price);
+    if (!n || isNaN(n)) return null;
+    return n.toLocaleString();
   }
 
   let currentUser = null;
@@ -83,18 +91,25 @@
   function renderCart() {
     const container = document.getElementById('cartItems');
     const checkoutBox = document.getElementById('checkoutBox');
+    const totalBox = document.getElementById('cartTotal');
     const total = cartItems.reduce((sum, it) => sum + (it.qty || 1), 0);
     document.getElementById('cartCount').innerText = total;
 
     if (cartItems.length === 0) {
       container.innerHTML = '<p class="empty-msg">Your cart is empty. Go add something you love!</p>';
       checkoutBox.style.display = 'none';
+      totalBox.style.display = 'none';
       return;
     }
 
     container.innerHTML = '';
+    let grandTotal = 0;
     cartItems.forEach((item, index) => {
       const isVideo = item.type === 'video';
+      const price = Number(item.price) || 0;
+      const lineTotal = price * (item.qty || 1);
+      grandTotal += lineTotal;
+      const priceLabel = formatPrice(item.price);
       const row = document.createElement('div');
       row.className = 'cart-item';
       row.innerHTML = `
@@ -103,7 +118,10 @@
           : `<img src="${item.mediaUrl}" class="cart-thumb">`}
         <div class="cart-item-info">
           <p class="cart-item-name">${item.caption || 'Item'}</p>
-          ${item.category ? `<span class="cat-tag" style="margin-left:0;">${item.category}</span>` : ''}
+          <div class="cart-item-meta">
+            ${item.category ? `<span class="cat-tag">${item.category}</span>` : ''}
+            ${priceLabel ? `<span class="price-tag">KES ${priceLabel}</span>` : ''}
+          </div>
           <div class="qty-controls">
             <button onclick="changeQty(${index}, -1)">−</button>
             <span>${item.qty || 1}</span>
@@ -114,6 +132,13 @@
       `;
       container.appendChild(row);
     });
+
+    if (grandTotal > 0) {
+      totalBox.style.display = 'flex';
+      totalBox.innerHTML = `<span>Estimated Total</span><span>KES ${grandTotal.toLocaleString()}</span>`;
+    } else {
+      totalBox.style.display = 'none';
+    }
 
     checkoutBox.style.display = 'block';
   }
@@ -133,6 +158,7 @@
     cartItems.splice(index, 1);
     await saveCart();
     renderCart();
+    showToast("Removed from cart");
   }
 
   window.placeOrder = async function() {
@@ -147,6 +173,8 @@
     if (!name || !phone) { errorMsg.innerText = "Name and phone are required"; return; }
     if (cartItems.length === 0) { errorMsg.innerText = "Your cart is empty"; return; }
 
+    const grandTotal = cartItems.reduce((sum, it) => sum + ((Number(it.price) || 0) * (it.qty || 1)), 0);
+
     showLoading(true);
     try {
       await addDoc(collection(db, "orders"), {
@@ -156,6 +184,7 @@
         customerPhone: phone,
         note: note,
         items: cartItems,
+        totalAmount: grandTotal,
         status: "pending",
         createdAt: new Date().toISOString()
       });
@@ -164,6 +193,7 @@
       cartItems = [];
       renderCart();
       successMsg.innerText = "Order placed! We've set your items aside — pay when you come collect them.";
+      showToast("✅ Order placed!");
       document.getElementById('checkoutName').value = '';
       document.getElementById('checkoutPhone').value = '';
       document.getElementById('checkoutNote').value = '';
