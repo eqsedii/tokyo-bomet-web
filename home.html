@@ -9,6 +9,12 @@
 </head>
 <body>
 
+<video class="bg-video-dim" autoplay muted loop playsinline>
+  <source src="https://res.cloudinary.com/kihyxfyk/video/upload/v1787894937/lv_0_20260828082227.mp4" type="video/mp4">
+</video>
+<div class="bg-glow-overlay"></div>
+<div class="bg-dark-tint"></div>
+
 <div id="loading-screen"><div class="loader-logo">TOKYO BOMET</div></div>
 
 <header class="top-bar">
@@ -30,7 +36,28 @@
 
 <div id="recBanner"></div>
 
-<div id="feed" class="feed"></div>
+<div id="feed" class="feed-grid"></div>
+
+<!-- Product Detail Modal -->
+<div id="productModal" class="product-modal">
+  <div class="product-modal-box">
+    <button class="modal-close" onclick="closeProductModal()">✕</button>
+    <div class="detail-media-viewer" id="detailMediaViewer"></div>
+    <div id="detailDots" class="media-dots"></div>
+    <div class="detail-info">
+      <div class="detail-top-row">
+        <span id="detailCategory" class="cat-tag"></span>
+        <span id="detailPrice" class="price-tag"></span>
+      </div>
+      <h3 id="detailName" class="detail-name"></h3>
+      <p id="detailCaption" class="detail-caption"></p>
+      <div class="detail-actions">
+        <button id="detailCartBtn" class="btn-primary-full">🛒 Add to Cart</button>
+        <button id="detailLoveBtn" class="btn-secondary-full">💛 Send what you've loved</button>
+      </div>
+    </div>
+  </div>
+</div>
 
 <div id="requestModal" class="modal">
   <div class="modal-box">
@@ -72,7 +99,8 @@
   let currentSourceId = null;
   let activeCategory = 'All';
   let allProducts = [];
-  const slideIndex = {};
+  let detailSlideIndex = 0;
+  let currentDetailProduct = null;
 
   onAuthStateChanged(auth, (user) => {
     if (!user) {
@@ -212,84 +240,109 @@
     }
 
     filtered.forEach(product => {
-      const media = product.media && product.media.length ? product.media : [];
-      slideIndex[product.id] = 0;
-
-      const slidesHtml = media.map((m, i) => `
-        <div class="media-slide ${i === 0 ? 'active' : ''}" data-index="${i}">
-          ${m.type === 'video'
-            ? `<video src="${optimizeUrl(m.url)}" controls playsinline preload="metadata" class="feed-media"></video>`
-            : `<img src="${optimizeUrl(m.url)}" class="feed-media">`}
-        </div>
-      `).join('');
-
-      const dotsHtml = media.length > 1
-        ? `<div class="media-dots">${media.map((_, i) => `<span class="dot ${i === 0 ? 'active' : ''}" data-index="${i}"></span>`).join('')}</div>`
-        : '';
-
+      const thumb = (product.media && product.media[0]) || null;
       const priceLabel = formatPrice(product.price);
+      const outOfStock = product.inStock === false;
 
       const card = document.createElement('div');
-      card.className = 'product-card';
+      card.className = 'grid-card';
       card.dataset.productId = product.id;
       card.innerHTML = `
-        <div class="card-top-row">
-          ${product.category ? `<span class="cat-tag">${product.category}</span>` : '<span></span>'}
-          ${priceLabel ? `<span class="price-tag">${priceLabel}</span>` : ''}
+        <div class="grid-thumb-wrap">
+          ${thumb
+            ? (thumb.type === 'video'
+                ? `<video src="${optimizeUrl(thumb.url)}" class="grid-thumb" muted playsinline></video>`
+                : `<img src="${optimizeUrl(thumb.url)}" class="grid-thumb">`)
+            : `<div class="grid-thumb"></div>`}
+          ${product.category ? `<span class="grid-cat-tag">${product.category}</span>` : ''}
+          ${outOfStock ? `<span class="grid-soldout">SOLD OUT</span>` : `
+            <button class="grid-cart-icon" data-id="${product.id}">🛒</button>
+          `}
+          ${(product.media && product.media.length > 1) ? `<span class="grid-media-count">${product.media.length}</span>` : ''}
         </div>
-        <div class="media-viewer">
-          ${slidesHtml || '<div class="feed-media" style="background:#000;"></div>'}
-          ${media.length > 1 ? `
-            <button class="media-nav prev">‹</button>
-            <button class="media-nav next">›</button>
-          ` : ''}
+        <div class="grid-info">
+          <p class="grid-name">${product.name || 'Item'}</p>
+          ${priceLabel ? `<p class="grid-price">${priceLabel}</p>` : ''}
         </div>
-        ${dotsHtml}
-        <h3 class="product-name">${product.name || 'Item'}</h3>
-        <p class="caption">${product.caption || ''}</p>
-        <div class="card-actions">
-  ${product.inStock === false
-    ? `<button class="cart-add-btn" disabled>Sold Out</button>`
-    : `<button class="cart-add-btn" data-id="${product.id}">🛒 Add to Cart</button>`}
-  <button class="love-btn" data-id="${product.id}" data-name="${(product.name || '').replace(/"/g, '&quot;')}">💛 Send what you've loved</button>
-</div>
       `;
       feedDiv.appendChild(card);
     });
 
-    document.querySelectorAll('.cart-add-btn').forEach(btn => {
-      btn.addEventListener('click', () => addToCart(btn.dataset.id));
+    document.querySelectorAll('.grid-card').forEach(card => {
+      card.addEventListener('click', (e) => {
+        if (e.target.classList.contains('grid-cart-icon')) return;
+        openProductDetail(card.dataset.productId);
+      });
     });
-    document.querySelectorAll('.love-btn').forEach(btn => {
-      btn.addEventListener('click', () => openModal(btn.dataset.id, btn.dataset.name));
-    });
-    document.querySelectorAll('.media-nav.next').forEach(btn => {
-      btn.addEventListener('click', () => changeSlide(btn.closest('.product-card'), 1));
-    });
-    document.querySelectorAll('.media-nav.prev').forEach(btn => {
-      btn.addEventListener('click', () => changeSlide(btn.closest('.product-card'), -1));
-    });
-    document.querySelectorAll('.dot').forEach(dot => {
-      dot.addEventListener('click', (e) => {
-        const card = e.target.closest('.product-card');
-        goToSlide(card, parseInt(e.target.dataset.index));
+    document.querySelectorAll('.grid-cart-icon').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        addToCart(btn.dataset.id);
       });
     });
   }
 
-  function changeSlide(card, delta) {
-    const productId = card.dataset.productId;
-    const slides = card.querySelectorAll('.media-slide');
-    let idx = slideIndex[productId] || 0;
-    idx = (idx + delta + slides.length) % slides.length;
-    goToSlide(card, idx);
+  window.openProductDetail = function(productId) {
+    const product = allProducts.find(p => p.id === productId);
+    if (!product) return;
+    currentDetailProduct = product;
+    detailSlideIndex = 0;
+    renderDetailModal();
+    document.getElementById('productModal').classList.add('active');
   }
 
-  function goToSlide(card, idx) {
-    const productId = card.dataset.productId;
-    slideIndex[productId] = idx;
-    card.querySelectorAll('.media-slide').forEach((s, i) => s.classList.toggle('active', i === idx));
-    card.querySelectorAll('.dot').forEach((d, i) => d.classList.toggle('active', i === idx));
+  function renderDetailModal() {
+    const product = currentDetailProduct;
+    const media = product.media || [];
+    const viewer = document.getElementById('detailMediaViewer');
+    const dots = document.getElementById('detailDots');
+
+    viewer.innerHTML = media.map((m, i) => `
+      <div class="media-slide ${i === detailSlideIndex ? 'active' : ''}">
+        ${m.type === 'video'
+          ? `<video src="${optimizeUrl(m.url)}" controls playsinline preload="metadata" class="detail-media"></video>`
+          : `<img src="${optimizeUrl(m.url)}" class="detail-media">`}
+      </div>
+    `).join('') + (media.length > 1 ? `
+      <button class="media-nav prev" id="detailPrev">‹</button>
+      <button class="media-nav next" id="detailNext">›</button>
+    ` : '');
+
+    dots.innerHTML = media.length > 1
+      ? media.map((_, i) => `<span class="dot ${i === detailSlideIndex ? 'active' : ''}"></span>`).join('')
+      : '';
+
+    document.getElementById('detailCategory').innerText = product.category || '';
+    document.getElementById('detailPrice').innerText = formatPrice(product.price);
+    document.getElementById('detailName').innerText = product.name || 'Item';
+    document.getElementById('detailCaption').innerText = product.caption || '';
+
+    const cartBtn = document.getElementById('detailCartBtn');
+    if (product.inStock === false) {
+      cartBtn.innerText = 'Sold Out';
+      cartBtn.disabled = true;
+    } else {
+      cartBtn.innerText = '🛒 Add to Cart';
+      cartBtn.disabled = false;
+      cartBtn.onclick = () => addToCart(product.id);
+    }
+
+    document.getElementById('detailLoveBtn').onclick = () => openModal(product.id, product.name);
+
+    if (media.length > 1) {
+      document.getElementById('detailPrev').onclick = () => changeDetailSlide(-1);
+      document.getElementById('detailNext').onclick = () => changeDetailSlide(1);
+    }
+  }
+
+  function changeDetailSlide(delta) {
+    const media = currentDetailProduct.media || [];
+    detailSlideIndex = (detailSlideIndex + delta + media.length) % media.length;
+    renderDetailModal();
+  }
+
+  window.closeProductModal = function() {
+    document.getElementById('productModal').classList.remove('active');
   }
 
   window.openModal = function(id, name) {
