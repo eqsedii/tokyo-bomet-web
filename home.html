@@ -13,11 +13,15 @@
 
 <header class="top-bar">
   <div class="brand-mini">TOKYO <span>BOMET</span></div>
-  <button class="icon-btn" onclick="handleLogout()">Logout</button>
+  <div class="top-actions">
+    <a href="cart.html" class="cart-btn">🛒 <span id="cartCount" class="cart-count">0</span></a>
+    <button class="icon-btn" onclick="handleLogout()">Logout</button>
+  </div>
 </header>
 
 <nav class="bottom-nav">
   <a href="home.html" class="nav-item active">Feed</a>
+  <a href="cart.html" class="nav-item">Cart</a>
   <a href="about.html" class="nav-item">About</a>
   <a href="contact.html" class="nav-item">Reach Us</a>
 </nav>
@@ -45,7 +49,7 @@
   import { auth, db } from './firebase-config.js';
   import { onAuthStateChanged, signOut }
     from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
-  import { collection, addDoc, getDocs, doc, getDoc, query, orderBy, where }
+  import { collection, addDoc, getDocs, doc, getDoc, setDoc, query, orderBy, where }
     from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 
   function showLoading(show) {
@@ -77,6 +81,7 @@
       loadCategories();
       loadFeed();
       loadRecommendations(user.uid);
+      updateCartCount();
     }
   });
 
@@ -88,7 +93,38 @@
         date: today,
         timestamp: new Date().toISOString()
       });
-    } catch (e) { /* silent fail, tracking shouldn't block the app */ }
+    } catch (e) { /* silent fail */ }
+  }
+
+  async function updateCartCount() {
+    try {
+      const cartDoc = await getDoc(doc(db, "carts", currentUser.uid));
+      const items = cartDoc.exists() ? (cartDoc.data().items || []) : [];
+      const total = items.reduce((sum, it) => sum + (it.qty || 1), 0);
+      document.getElementById('cartCount').innerText = total;
+    } catch (e) { /* ignore */ }
+  }
+
+  window.addToCart = async function(id, type, caption, category, mediaUrl) {
+    showLoading(true);
+    try {
+      const cartRef = doc(db, "carts", currentUser.uid);
+      const cartDoc = await getDoc(cartRef);
+      let items = cartDoc.exists() ? (cartDoc.data().items || []) : [];
+      const existing = items.find(it => it.refId === id);
+      if (existing) {
+        existing.qty = (existing.qty || 1) + 1;
+      } else {
+        items.push({ refId: id, type, caption, category: category || '', mediaUrl, qty: 1, addedAt: new Date().toISOString() });
+      }
+      await setDoc(cartRef, { items });
+      await updateCartCount();
+      showLoading(false);
+      alert("Added to cart!");
+    } catch (e) {
+      showLoading(false);
+      alert("Could not add to cart. Try again.");
+    }
   }
 
   async function loadCategories() {
@@ -170,14 +206,19 @@
     filtered.forEach(item => {
       const card = document.createElement('div');
       card.className = 'video-card';
+      const mediaUrl = item.type === 'video' ? item.videoUrl : item.photoUrl;
       const media = item.type === 'video'
         ? `<video src="${optimizeVideoUrl(item.videoUrl)}" controls playsinline preload="metadata" class="feed-video"></video>`
         : `<img src="${optimizeImageUrl(item.photoUrl)}" class="feed-photo">`;
+      const safeCaption = (item.caption || '').replace(/'/g, "\\'");
       card.innerHTML = `
         ${item.category ? `<span class="cat-tag">${item.category}</span>` : ''}
         ${media}
         <p class="caption">${item.caption || ''}</p>
-        <button class="love-btn" data-id="${item.id}" data-type="${item.type}">💛 Send what you've loved</button>
+        <div class="card-actions">
+          <button class="cart-add-btn" onclick="addToCart('${item.id}','${item.type}','${safeCaption}','${item.category || ''}','${mediaUrl}')">🛒 Add to Cart</button>
+          <button class="love-btn" data-id="${item.id}" data-type="${item.type}">💛 Send what you've loved</button>
+        </div>
       `;
       feedDiv.appendChild(card);
     });
