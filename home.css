@@ -59,17 +59,6 @@ body { overflow-y:auto; height:auto; background:#1a0533; padding-bottom:70px; }
 
 .cat-pill.active { background:#f4c542; color:#2b0a4e; border-color:#f4c542; }
 
-.cat-tag {
-  display:inline-block;
-  background:rgba(244,197,66,0.15);
-  color:#f4c542;
-  font-size:11px;
-  font-weight:700;
-  padding:4px 10px;
-  border-radius:12px;
-  margin:10px 0 0 14px;
-}
-
 .feed { padding:16px; display:flex; flex-direction:column; gap:20px; max-width:480px; margin:0 auto; }
 
 .video-card {
@@ -78,6 +67,33 @@ body { overflow-y:auto; height:auto; background:#1a0533; padding-bottom:70px; }
   border-radius:14px;
   overflow:hidden;
   padding-bottom:14px;
+}
+
+.card-top-row {
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  padding:10px 14px 0;
+}
+
+.cat-tag {
+  display:inline-block;
+  background:rgba(244,197,66,0.15);
+  color:#f4c542;
+  font-size:11px;
+  font-weight:700;
+  padding:4px 10px;
+  border-radius:12px;
+}
+
+.price-tag {
+  display:inline-block;
+  background:#f4c542;
+  color:#2b0a4e;
+  font-size:13px;
+  font-weight:800;
+  padding:5px 12px;
+  border-radius:12px;
 }
 
 .feed-video { width:100%; display:block; max-height:420px; background:#000; margin-top:8px; }
