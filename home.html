@@ -35,7 +35,7 @@
 <div id="requestModal" class="modal">
   <div class="modal-box">
     <h3>What did you love?</h3>
-    <input type="text" id="reqName" placeholder="Item name (e.g. Blue Nike Dunks)">
+    <input type="text" id="reqName" placeholder="Item name">
     <textarea id="reqDesc" placeholder="Describe it (size, color, etc.)"></textarea>
     <p class="error-msg" id="reqError"></p>
     <div class="modal-actions">
@@ -57,13 +57,8 @@
     document.getElementById('loading-screen').classList.toggle('active', show);
   }
 
-  function optimizeVideoUrl(url) {
-    if (!url.includes('/upload/')) return url;
-    return url.replace('/upload/', '/upload/q_auto,f_auto/');
-  }
-
-  function optimizeImageUrl(url) {
-    if (!url.includes('/upload/')) return url;
+  function optimizeUrl(url) {
+    if (!url || !url.includes('/upload/')) return url;
     return url.replace('/upload/', '/upload/q_auto,f_auto/');
   }
 
@@ -75,9 +70,9 @@
 
   let currentUser = null;
   let currentSourceId = null;
-  let currentSourceType = null;
   let activeCategory = 'All';
-  let allItems = [];
+  let allProducts = [];
+  const slideIndex = {};
 
   onAuthStateChanged(auth, (user) => {
     if (!user) {
@@ -96,9 +91,7 @@
     try {
       const today = new Date().toISOString().slice(0, 10);
       await addDoc(collection(db, "visits"), {
-        userId: uid,
-        date: today,
-        timestamp: new Date().toISOString()
+        userId: uid, date: today, timestamp: new Date().toISOString()
       });
     } catch (e) { /* silent fail */ }
   }
@@ -112,17 +105,29 @@
     } catch (e) { /* ignore */ }
   }
 
-  window.addToCart = async function(id, type, caption, category, mediaUrl, price) {
+  window.addToCart = async function(productId) {
+    const product = allProducts.find(p => p.id === productId);
+    if (!product) return;
     showLoading(true);
     try {
       const cartRef = doc(db, "carts", currentUser.uid);
       const cartDoc = await getDoc(cartRef);
       let items = cartDoc.exists() ? (cartDoc.data().items || []) : [];
-      const existing = items.find(it => it.refId === id);
+      const existing = items.find(it => it.productId === productId);
       if (existing) {
         existing.qty = (existing.qty || 1) + 1;
       } else {
-        items.push({ refId: id, type, caption, category: category || '', mediaUrl, price: price || 0, qty: 1, addedAt: new Date().toISOString() });
+        const thumb = (product.media && product.media[0]) || null;
+        items.push({
+          productId: productId,
+          name: product.name || 'Item',
+          category: product.category || '',
+          price: product.price || 0,
+          thumbUrl: thumb ? thumb.url : '',
+          thumbType: thumb ? thumb.type : 'photo',
+          qty: 1,
+          addedAt: new Date().toISOString()
+        });
       }
       await setDoc(cartRef, { items });
       await updateCartCount();
@@ -184,15 +189,11 @@
 
   async function loadFeed() {
     showLoading(true);
-    allItems = [];
+    allProducts = [];
     try {
-      const vSnap = await getDocs(query(collection(db, "videos"), orderBy("createdAt", "desc")));
-      vSnap.forEach(d => allItems.push({ id: d.id, type: 'video', ...d.data() }));
-
-      const pSnap = await getDocs(query(collection(db, "photos"), orderBy("createdAt", "desc")));
-      pSnap.forEach(d => allItems.push({ id: d.id, type: 'photo', ...d.data() }));
-
-      allItems.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+      const q = query(collection(db, "products"), orderBy("createdAt", "desc"));
+      const snap = await getDocs(q);
+      snap.forEach(d => allProducts.push({ id: d.id, ...d.data() }));
     } catch (e) { /* ignore */ }
     renderFeed();
     showLoading(false);
@@ -202,47 +203,96 @@
     const feedDiv = document.getElementById('feed');
     feedDiv.innerHTML = '';
     const filtered = activeCategory === 'All'
-      ? allItems
-      : allItems.filter(i => i.category === activeCategory);
+      ? allProducts
+      : allProducts.filter(p => p.category === activeCategory);
 
     if (filtered.length === 0) {
       feedDiv.innerHTML = '<p class="empty-msg">No products in this category yet.</p>';
       return;
     }
 
-    filtered.forEach(item => {
+    filtered.forEach(product => {
+      const media = product.media && product.media.length ? product.media : [];
+      slideIndex[product.id] = 0;
+
+      const slidesHtml = media.map((m, i) => `
+        <div class="media-slide ${i === 0 ? 'active' : ''}" data-index="${i}">
+          ${m.type === 'video'
+            ? `<video src="${optimizeUrl(m.url)}" controls playsinline preload="metadata" class="feed-media"></video>`
+            : `<img src="${optimizeUrl(m.url)}" class="feed-media">`}
+        </div>
+      `).join('');
+
+      const dotsHtml = media.length > 1
+        ? `<div class="media-dots">${media.map((_, i) => `<span class="dot ${i === 0 ? 'active' : ''}" data-index="${i}"></span>`).join('')}</div>`
+        : '';
+
+      const priceLabel = formatPrice(product.price);
+
       const card = document.createElement('div');
-      card.className = 'video-card';
-      const mediaUrl = item.type === 'video' ? item.videoUrl : item.photoUrl;
-      const media = item.type === 'video'
-        ? `<video src="${optimizeVideoUrl(item.videoUrl)}" controls playsinline preload="metadata" class="feed-video"></video>`
-        : `<img src="${optimizeImageUrl(item.photoUrl)}" class="feed-photo">`;
-      const safeCaption = (item.caption || '').replace(/'/g, "\\'");
-      const priceLabel = formatPrice(item.price);
+      card.className = 'product-card';
+      card.dataset.productId = product.id;
       card.innerHTML = `
         <div class="card-top-row">
-          ${item.category ? `<span class="cat-tag">${item.category}</span>` : '<span></span>'}
+          ${product.category ? `<span class="cat-tag">${product.category}</span>` : '<span></span>'}
           ${priceLabel ? `<span class="price-tag">${priceLabel}</span>` : ''}
         </div>
-        ${media}
-        <p class="caption">${item.caption || ''}</p>
+        <div class="media-viewer">
+          ${slidesHtml || '<div class="feed-media" style="background:#000;"></div>'}
+          ${media.length > 1 ? `
+            <button class="media-nav prev">‹</button>
+            <button class="media-nav next">›</button>
+          ` : ''}
+        </div>
+        ${dotsHtml}
+        <h3 class="product-name">${product.name || 'Item'}</h3>
+        <p class="caption">${product.caption || ''}</p>
         <div class="card-actions">
-          <button class="cart-add-btn" onclick="addToCart('${item.id}','${item.type}','${safeCaption}','${item.category || ''}','${mediaUrl}',${Number(item.price) || 0})">🛒 Add to Cart</button>
-          <button class="love-btn" data-id="${item.id}" data-type="${item.type}">💛 Send what you've loved</button>
+          <button class="cart-add-btn" data-id="${product.id}">🛒 Add to Cart</button>
+          <button class="love-btn" data-id="${product.id}" data-name="${(product.name || '').replace(/"/g, '&quot;')}">💛 Send what you've loved</button>
         </div>
       `;
       feedDiv.appendChild(card);
     });
 
+    document.querySelectorAll('.cart-add-btn').forEach(btn => {
+      btn.addEventListener('click', () => addToCart(btn.dataset.id));
+    });
     document.querySelectorAll('.love-btn').forEach(btn => {
-      btn.addEventListener('click', () => openModal(btn.dataset.id, btn.dataset.type));
+      btn.addEventListener('click', () => openModal(btn.dataset.id, btn.dataset.name));
+    });
+    document.querySelectorAll('.media-nav.next').forEach(btn => {
+      btn.addEventListener('click', () => changeSlide(btn.closest('.product-card'), 1));
+    });
+    document.querySelectorAll('.media-nav.prev').forEach(btn => {
+      btn.addEventListener('click', () => changeSlide(btn.closest('.product-card'), -1));
+    });
+    document.querySelectorAll('.dot').forEach(dot => {
+      dot.addEventListener('click', (e) => {
+        const card = e.target.closest('.product-card');
+        goToSlide(card, parseInt(e.target.dataset.index));
+      });
     });
   }
 
-  window.openModal = function(id, type) {
+  function changeSlide(card, delta) {
+    const productId = card.dataset.productId;
+    const slides = card.querySelectorAll('.media-slide');
+    let idx = slideIndex[productId] || 0;
+    idx = (idx + delta + slides.length) % slides.length;
+    goToSlide(card, idx);
+  }
+
+  function goToSlide(card, idx) {
+    const productId = card.dataset.productId;
+    slideIndex[productId] = idx;
+    card.querySelectorAll('.media-slide').forEach((s, i) => s.classList.toggle('active', i === idx));
+    card.querySelectorAll('.dot').forEach((d, i) => d.classList.toggle('active', i === idx));
+  }
+
+  window.openModal = function(id, name) {
     currentSourceId = id;
-    currentSourceType = type;
-    document.getElementById('reqName').value = '';
+    document.getElementById('reqName').value = name || '';
     document.getElementById('reqDesc').value = '';
     document.getElementById('reqError').innerText = '';
     document.getElementById('requestModal').classList.add('active');
@@ -266,7 +316,7 @@
         username: username,
         email: currentUser.email,
         sourceId: currentSourceId,
-        sourceType: currentSourceType,
+        sourceType: "product",
         itemName: name,
         description: desc,
         status: "pending",
