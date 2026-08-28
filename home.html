@@ -248,9 +248,11 @@
         <h3 class="product-name">${product.name || 'Item'}</h3>
         <p class="caption">${product.caption || ''}</p>
         <div class="card-actions">
-          <button class="cart-add-btn" data-id="${product.id}">🛒 Add to Cart</button>
-          <button class="love-btn" data-id="${product.id}" data-name="${(product.name || '').replace(/"/g, '&quot;')}">💛 Send what you've loved</button>
-        </div>
+  ${product.inStock === false
+    ? `<button class="cart-add-btn" disabled>Sold Out</button>`
+    : `<button class="cart-add-btn" data-id="${product.id}">🛒 Add to Cart</button>`}
+  <button class="love-btn" data-id="${product.id}" data-name="${(product.name || '').replace(/"/g, '&quot;')}">💛 Send what you've loved</button>
+</div>
       `;
       feedDiv.appendChild(card);
     });
