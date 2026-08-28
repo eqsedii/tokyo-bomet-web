@@ -11,6 +11,27 @@ body { overflow-y:auto; height:auto; background:#1a0533; padding-bottom:70px; }
 .brand-mini { font-weight:900; font-size:18px; color:#fff; letter-spacing:1px; }
 .brand-mini span { color:#f4c542; }
 
+.top-actions { display:flex; align-items:center; gap:12px; }
+
+.cart-btn {
+  position:relative;
+  text-decoration:none;
+  font-size:20px;
+  color:#f4c542;
+}
+
+.cart-count {
+  position:absolute;
+  top:-8px; right:-10px;
+  background:#f4c542;
+  color:#2b0a4e;
+  font-size:10px;
+  font-weight:700;
+  border-radius:50%;
+  width:16px; height:16px;
+  display:flex; align-items:center; justify-content:center;
+}
+
 .icon-btn {
   background:transparent; border:1px solid #f4c542; color:#f4c542;
   padding:6px 14px; border-radius:20px; font-size:13px;
@@ -64,11 +85,23 @@ body { overflow-y:auto; height:auto; background:#1a0533; padding-bottom:70px; }
 
 .caption { padding:10px 14px 0; font-size:14px; color:#e0c9ff; }
 
-.love-btn {
-  display:block; width:calc(100% - 28px); margin:12px auto 0;
-  background:#f4c542; color:#2b0a4e; border:none;
-  padding:12px; border-radius:10px; font-weight:700; font-size:14px;
+.card-actions {
+  display:flex;
+  gap:8px;
+  margin:12px 14px 0;
 }
+
+.cart-add-btn, .love-btn {
+  flex:1;
+  border:none;
+  padding:12px 6px;
+  border-radius:10px;
+  font-weight:700;
+  font-size:12.5px;
+}
+
+.cart-add-btn { background:transparent; border:1px solid #f4c542; color:#f4c542; }
+.love-btn { background:#f4c542; color:#2b0a4e; }
 
 .empty-msg { text-align:center; color:#c9b3ea; margin-top:40px; }
 
@@ -113,6 +146,18 @@ body { overflow-y:auto; height:auto; background:#1a0533; padding-bottom:70px; }
 
 .btn-secondary { background:transparent; border:1px solid #f4c542; color:#f4c542; }
 .btn-primary { background:#f4c542; color:#2b0a4e; }
+
+.btn-primary-full {
+  width:100%;
+  padding:13px;
+  border:none;
+  border-radius:8px;
+  background:#f4c542;
+  color:#2b0a4e;
+  font-weight:700;
+  font-size:15px;
+  margin-top:6px;
+}
 
 .rec-card {
   max-width:480px; margin:16px auto 0;
