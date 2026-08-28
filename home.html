@@ -47,6 +47,7 @@
 
 <script type="module">
   import { auth, db } from './firebase-config.js';
+  import { showToast } from './toast.js';
   import { onAuthStateChanged, signOut }
     from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
   import { collection, addDoc, getDocs, doc, getDoc, setDoc, query, orderBy, where }
@@ -64,6 +65,12 @@
   function optimizeImageUrl(url) {
     if (!url.includes('/upload/')) return url;
     return url.replace('/upload/', '/upload/q_auto,f_auto/');
+  }
+
+  function formatPrice(price) {
+    const n = Number(price);
+    if (!n || isNaN(n)) return '';
+    return 'KES ' + n.toLocaleString();
   }
 
   let currentUser = null;
@@ -105,7 +112,7 @@
     } catch (e) { /* ignore */ }
   }
 
-  window.addToCart = async function(id, type, caption, category, mediaUrl) {
+  window.addToCart = async function(id, type, caption, category, mediaUrl, price) {
     showLoading(true);
     try {
       const cartRef = doc(db, "carts", currentUser.uid);
@@ -115,15 +122,15 @@
       if (existing) {
         existing.qty = (existing.qty || 1) + 1;
       } else {
-        items.push({ refId: id, type, caption, category: category || '', mediaUrl, qty: 1, addedAt: new Date().toISOString() });
+        items.push({ refId: id, type, caption, category: category || '', mediaUrl, price: price || 0, qty: 1, addedAt: new Date().toISOString() });
       }
       await setDoc(cartRef, { items });
       await updateCartCount();
       showLoading(false);
-      alert("Added to cart!");
+      showToast("💛 Added to cart!");
     } catch (e) {
       showLoading(false);
-      alert("Could not add to cart. Try again.");
+      showToast("Could not add to cart. Try again.");
     }
   }
 
@@ -211,12 +218,16 @@
         ? `<video src="${optimizeVideoUrl(item.videoUrl)}" controls playsinline preload="metadata" class="feed-video"></video>`
         : `<img src="${optimizeImageUrl(item.photoUrl)}" class="feed-photo">`;
       const safeCaption = (item.caption || '').replace(/'/g, "\\'");
+      const priceLabel = formatPrice(item.price);
       card.innerHTML = `
-        ${item.category ? `<span class="cat-tag">${item.category}</span>` : ''}
+        <div class="card-top-row">
+          ${item.category ? `<span class="cat-tag">${item.category}</span>` : '<span></span>'}
+          ${priceLabel ? `<span class="price-tag">${priceLabel}</span>` : ''}
+        </div>
         ${media}
         <p class="caption">${item.caption || ''}</p>
         <div class="card-actions">
-          <button class="cart-add-btn" onclick="addToCart('${item.id}','${item.type}','${safeCaption}','${item.category || ''}','${mediaUrl}')">🛒 Add to Cart</button>
+          <button class="cart-add-btn" onclick="addToCart('${item.id}','${item.type}','${safeCaption}','${item.category || ''}','${mediaUrl}',${Number(item.price) || 0})">🛒 Add to Cart</button>
           <button class="love-btn" data-id="${item.id}" data-type="${item.type}">💛 Send what you've loved</button>
         </div>
       `;
@@ -264,7 +275,7 @@
       });
       showLoading(false);
       closeModal();
-      alert("Sent! Tokyo Bomet will get back to you soon.");
+      showToast("Sent! Tokyo Bomet will get back to you soon.");
     } catch (e) {
       errorMsg.innerText = "Failed to send. Try again.";
       showLoading(false);
