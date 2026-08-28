@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Tokyo Bomet - Cart</title>
+<link rel="stylesheet" href="style.css">
+<link rel="stylesheet" href="home.css">
+<link rel="stylesheet" href="pages.css">
+<link rel="stylesheet" href="cart.css">
+</head>
+<body>
+
+<div id="loading-screen"><div class="loader-logo">TOKYO BOMET</div></div>
+
+<header class="top-bar">
+  <div class="brand-mini">TOKYO <span>BOMET</span></div>
+  <div class="top-actions">
+    <a href="cart.html" class="cart-btn">🛒 <span id="cartCount" class="cart-count">0</span></a>
+    <button class="icon-btn" onclick="handleLogout()">Logout</button>
+  </div>
+</header>
+
+<nav class="bottom-nav">
+  <a href="home.html" class="nav-item">Feed</a>
+  <a href="cart.html" class="nav-item active">Cart</a>
+  <a href="about.html" class="nav-item">About</a>
+  <a href="contact.html" class="nav-item">Reach Us</a>
+</nav>
+
+<div class="page-content">
+  <h2 class="page-title">Your Cart</h2>
+  <div id="cartItems"></div>
+
+  <div id="checkoutBox" class="info-card" style="display:none;">
+    <h4>Reserve These Items</h4>
+    <p class="page-text" style="margin-bottom:14px;">
+      Tokyo Bomet will set your items aside. Pay when you come to collect them at our shop, opposite Bomet Stage, near Twigs Hotel.
+    </p>
+    <input type="text" id="checkoutName" placeholder="Your Name">
+    <input type="text" id="checkoutPhone" placeholder="Phone Number">
+    <textarea id="checkoutNote" placeholder="Any notes (size, color preference, pickup time...)"></textarea>
+    <p class="error-msg" id="checkoutError"></p>
+    <p class="success-msg" id="checkoutSuccess"></p>
+    <button class="btn-primary-full" onclick="placeOrder()">Reserve My Items</button>
+  </div>
+</div>
+
+<script type="module">
+  import { auth, db } from './firebase-config.js';
+  import { onAuthStateChanged, signOut }
+    from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
+  import { doc, getDoc, setDoc, collection, addDoc }
+    from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+
+  function showLoading(show) {
+    document.getElementById('loading-screen').classList.toggle('active', show);
+  }
+
+  let currentUser = null;
+  let cartItems = [];
+
+  onAuthStateChanged(auth, (user) => {
+    if (!user) {
+      window.location.href = "index.html";
+    } else {
+      currentUser = user;
+      loadCart();
+    }
+  });
+
+  async function loadCart() {
+    showLoading(true);
+    try {
+      const cartRef = doc(db, "carts", currentUser.uid);
+      const cartDoc = await getDoc(cartRef);
+      cartItems = cartDoc.exists() ? (cartDoc.data().items || []) : [];
+    } catch (e) { cartItems = []; }
+    renderCart();
+    showLoading(false);
+  }
+
+  function renderCart() {
+    const container = document.getElementById('cartItems');
+    const checkoutBox = document.getElementById('checkoutBox');
+    const total = cartItems.reduce((sum, it) => sum + (it.qty || 1), 0);
+    document.getElementById('cartCount').innerText = total;
+
+    if (cartItems.length === 0) {
+      container.innerHTML = '<p class="empty-msg">Your cart is empty. Go add something you love!</p>';
+      checkoutBox.style.display = 'none';
+      return;
+    }
+
+    container.innerHTML = '';
+    cartItems.forEach((item, index) => {
+      const isVideo = item.type === 'video';
+      const row = document.createElement('div');
+      row.className = 'cart-item';
+      row.innerHTML = `
+        ${isVideo
+          ? `<video src="${item.mediaUrl}" class="cart-thumb" muted></video>`
+          : `<img src="${item.mediaUrl}" class="cart-thumb">`}
+        <div class="cart-item-info">
+          <p class="cart-item-name">${item.caption || 'Item'}</p>
+          ${item.category ? `<span class="cat-tag" style="margin-left:0;">${item.category}</span>` : ''}
+          <div class="qty-controls">
+            <button onclick="changeQty(${index}, -1)">−</button>
+            <span>${item.qty || 1}</span>
+            <button onclick="changeQty(${index}, 1)">+</button>
+          </div>
+        </div>
+        <button class="remove-btn" onclick="removeItem(${index})">✕</button>
+      `;
+      container.appendChild(row);
+    });
+
+    checkoutBox.style.display = 'block';
+  }
+
+  async function saveCart() {
+    const cartRef = doc(db, "carts", currentUser.uid);
+    await setDoc(cartRef, { items: cartItems });
+  }
+
+  window.changeQty = async function(index, delta) {
+    cartItems[index].qty = Math.max(1, (cartItems[index].qty || 1) + delta);
+    await saveCart();
+    renderCart();
+  }
+
+  window.removeItem = async function(index) {
+    cartItems.splice(index, 1);
+    await saveCart();
+    renderCart();
+  }
+
+  window.placeOrder = async function() {
+    const name = document.getElementById('checkoutName').value.trim();
+    const phone = document.getElementById('checkoutPhone').value.trim();
+    const note = document.getElementById('checkoutNote').value.trim();
+    const errorMsg = document.getElementById('checkoutError');
+    const successMsg = document.getElementById('checkoutSuccess');
+    errorMsg.innerText = '';
+    successMsg.innerText = '';
+
+    if (!name || !phone) { errorMsg.innerText = "Name and phone are required"; return; }
+    if (cartItems.length === 0) { errorMsg.innerText = "Your cart is empty"; return; }
+
+    showLoading(true);
+    try {
+      await addDoc(collection(db, "orders"), {
+        userId: currentUser.uid,
+        email: currentUser.email,
+        customerName: name,
+        customerPhone: phone,
+        note: note,
+        items: cartItems,
+        status: "pending",
+        createdAt: new Date().toISOString()
+      });
+
+      await setDoc(doc(db, "carts", currentUser.uid), { items: [] });
+      cartItems = [];
+      renderCart();
+      successMsg.innerText = "Order placed! We've set your items aside — pay when you come collect them.";
+      document.getElementById('checkoutName').value = '';
+      document.getElementById('checkoutPhone').value = '';
+      document.getElementById('checkoutNote').value = '';
+    } catch (e) {
+      errorMsg.innerText = "Failed to place order. Try again.";
+    }
+    showLoading(false);
+  }
+
+  window.handleLogout = async function() {
+    await signOut(auth);
+    window.location.href = "index.html";
+  }
+</script>
+</body>
+</html>
